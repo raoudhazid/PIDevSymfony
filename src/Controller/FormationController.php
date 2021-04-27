@@ -2,12 +2,15 @@
 
 namespace App\Controller;
 
+use App\Entity\Contact;
 use App\Entity\File;
 use App\Entity\Myformation;
+use App\Form\ContactType;
 use App\Form\FormationType;
 use App\Repository\MyformationRepository;
 use App\Service\FormationService;
 use Knp\Component\Pager\PaginatorInterface;
+use Swift_Mailer;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -288,5 +291,54 @@ class FormationController extends AbstractController
             'formation' => $formation
         ]);
     }
+
+
+    /**
+     * @Route("/contact", name="contact")
+     * @param Request $request
+     * @param Swift_Mailer $mailer
+     * @return Response
+     */
+    public function email(Request $request , Swift_Mailer $mailer)
+    {
+
+        $contact= new Contact();
+        $form = $this->createForm(ContactType::class,$contact);
+        $form->handleRequest($request);
+        # check if form is submitted
+
+        if($form->isSubmitted() &&  $form->isValid()) {
+            $name = $form['name']->getData();
+            $email = $form['email']->getData();
+            $message = $form['message']->getData();
+
+            # set form data
+
+            $contact->setName($name);
+            $contact->setEmail($email);
+            $contact->setMessage($message);
+
+            # finally add data in database
+
+            $sn = $this->getDoctrine()->getManager();
+            $sn->persist($contact);
+            $sn->flush();
+            $subj = (new \Swift_Message('Hello Email'))
+                ->setFrom($email)
+                ->setTo('raoudha.zid@esprit.tn')
+                ->setBody($this->renderView('emails/contact.html.twig',array('name' => $name, 'message' => $message)),'text/html');
+            $mailer->send($subj);
+
+        }
+
+        return $this->render('contact/index.html.twig',['emailForm' => $form->createView()]);
+    }
+
+
+
+
+
+
+
 
 }
